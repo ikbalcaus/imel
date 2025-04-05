@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.13" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Imel.Database\Imel.Database.csproj" />
+    <ProjectReference Include="..\Imel.Interfaces\Imel.Interfaces.csproj" />
+    <ProjectReference Include="..\Imel.Models\Imel.Models.csproj" />
+    <ProjectReference Include="..\Imel.Services\Imel.Services.csproj" />
+  </ItemGroup>
+
+</Project>
