@@ -6,8 +6,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Dodajte servise
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserCRUD, UserCRUD>();
 
 // Konfiguracija JWT autentifikacije
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -30,7 +30,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
         builder => builder
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins("http://localhost:5173", "http://localhost:3000")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials());

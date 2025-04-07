@@ -1,14 +1,14 @@
-﻿using Imel.Database;
+﻿using Imel.Database.Models;
+using Imel.Database;
 using Imel.Interfaces;
 using Imel.Models.Auth;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 
 namespace Imel.Services
 {
@@ -20,70 +20,49 @@ namespace Imel.Services
         private readonly TimeSpan LoginAttemptWindow = TimeSpan.FromMinutes(15);
         private readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(30);
 
-        private static readonly Dictionary<string, User> _users = new();
-
         public AuthService(IConfiguration configuration, IMemoryCache cache)
         {
             _configuration = configuration;
             _cache = cache;
         }
 
-        public string HashPassword(string password)
+        public int GetRemainingAttempts(string email)
         {
-            byte[] salt;
-            byte[] buffer2;
-
-            using (Rfc2898DeriveBytes bytes = new(password, 0x10, 0x3e8))
-            {
-                salt = bytes.Salt;
-                buffer2 = bytes.GetBytes(0x20);
-            }
-
-            byte[] dst = new byte[0x31];
-            Buffer.BlockCopy(salt, 0, dst, 1, 0x10);
-            Buffer.BlockCopy(buffer2, 0, dst, 0x11, 0x20);
-            return Convert.ToBase64String(dst);
-        }
-
-        private bool VerifyPassword(string hashedPassword, string password)
-        {
-            byte[] buffer4;
-            byte[] src = Convert.FromBase64String(hashedPassword);
-
-            if (src.Length != 0x31 || src[0] != 0)
-            {
-                return false;
-            }
-
-            byte[] dst = new byte[0x10];
-            Buffer.BlockCopy(src, 1, dst, 0, 0x10);
-            byte[] buffer3 = new byte[0x20];
-            Buffer.BlockCopy(src, 0x11, buffer3, 0, 0x20);
-
-            using (Rfc2898DeriveBytes bytes = new(password, dst, 0x3e8))
-            {
-                buffer4 = bytes.GetBytes(0x20);
-            }
-
-            return buffer3.SequenceEqual(buffer4);
-        }
-
-        public int GetRemainingAttempts(string username)
-        {
-            var cacheKey = $"login_attempts_{username}";
+            var cacheKey = $"login_attempts_{email}";
             return _cache.TryGetValue(cacheKey, out int attempts)
                 ? MaxLoginAttempts - attempts
                 : MaxLoginAttempts;
         }
 
-        public void AddUser(string email, string username, string password, string? role = null)
+        public void AddUser(string email, string username, string password, int roleId)
         {
-            _users[username] = new User
+            if (DBContext.Users.ContainsKey(email))
+            {
+                throw new ArgumentException("User with this email already exists");
+            }
+
+            if (DBContext.Users.Values.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException("Username is already taken");
+            }
+
+            if (!Helpers.IsValidEmail(email))
+            {
+                throw new ArgumentException("Invalid email format");
+            }
+
+            if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+            {
+                throw new ArgumentException("Password must be at least 8 characters long");
+            }
+
+            DBContext.Users[email] = new User
             {
                 Email = email,
                 Username = username,
-                PasswordHash = HashPassword(password),
-                Role = role
+                PasswordHash = Helpers.HashPassword(password),
+                RoleId = (roleId == 1 || roleId == 2) ? roleId : 1,
+                Role = DBContext.Roles.FirstOrDefault(x => (x.Id == roleId || x.Id == 1))!
             };
         }
 
@@ -122,8 +101,8 @@ namespace Imel.Services
                 };
             }
 
-            if (!_users.TryGetValue(loginRequest.Email, out var user) ||
-                !VerifyPassword(user.PasswordHash, loginRequest.Password))
+            if (!DBContext.Users.TryGetValue(loginRequest.Email, out var user) ||
+                !Helpers.VerifyPassword(user.PasswordHash, loginRequest.Password))
             {
                 _cache.Set(cacheKey, attempts + 1, LoginAttemptWindow);
                 return new AuthResult
@@ -141,7 +120,7 @@ namespace Imel.Services
 
         public LoginResponse GenerateToken(string email)
         {
-            if (!_users.TryGetValue(email, out var user))
+            if (!DBContext.Users.TryGetValue(email, out var user))
                 throw new ArgumentException("User does not exist");
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -149,13 +128,8 @@ namespace Imel.Services
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.Name, user.Username)
+                new(ClaimTypes.Name, user.Email)
             };
-
-            if (!string.IsNullOrEmpty(user.Role))
-            {
-                claims.Add(new(ClaimTypes.Role, user.Role));
-            }
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -174,7 +148,8 @@ namespace Imel.Services
             return new LoginResponse
             {
                 Token = tokenHandler.WriteToken(token),
-                Expiration = tokenDescriptor.Expires.Value
+                Expiration = tokenDescriptor.Expires.Value,
+                Message = "User loggedin successfully"
             };
         }
     }

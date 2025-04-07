@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Imel.Database\Imel.Database.csproj" />
     <ProjectReference Include="..\Imel.Models\Imel.Models.csproj" />
   </ItemGroup>
 
