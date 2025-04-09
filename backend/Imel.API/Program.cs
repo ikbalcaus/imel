@@ -7,9 +7,9 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IUserCRUD, UserCRUD>();
+builder.Services.AddScoped<IUsersService, UsersService>();
+builder.Services.AddScoped<IRolesService, RolesService>();
 
-// Konfiguracija JWT autentifikacije
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

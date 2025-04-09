@@ -3,5 +3,7 @@ export const urls = {
     auth: {
         login: serverAddress + "/auth/login",
         register: serverAddress + "/auth/register"
-    }
+    },
+    users: serverAddress + "/users",
+    roles: serverAddress + "/roles"
 }

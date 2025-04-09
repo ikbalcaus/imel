@@ -9,6 +9,5 @@ namespace Imel.Models.Auth
 
         [MinLength(8)]
         public string Password { get; set; } = null!;
-        public int RoleId { get; set; }
     }
 }

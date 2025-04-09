@@ -1,6 +1,9 @@
-﻿using Imel.Interfaces;
+﻿using Imel.Database.Models;
+using Imel.Database;
+using Imel.Interfaces;
 using Imel.Models;
 using Imel.Models.Auth;
+using Imel.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Imel.API.Controllers
@@ -38,7 +41,7 @@ namespace Imel.API.Controllers
         {
             try
             {
-                _authService.AddUser(request.Email, request.Username, request.Password, request.RoleId);
+                _authService.AddUser(request.Email, request.Username, request.Password);
                 return Ok(new RegisterResponse { Message = "User registered successfully"});
             }
             catch (ArgumentException ex)
@@ -50,6 +53,24 @@ namespace Imel.API.Controllers
                 _logger.LogError(ex, "Registration error");
                 return StatusCode(500, "An error occurred during registration");
             }
+        }
+
+        [HttpPost("genereteAdmin")]
+        public ActionResult GenereteAdminUser()
+        {
+            int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1;
+            if (!DBContext.Users.Values.Any(x => x.Email == "admin@admin.com"))
+                DBContext.Users[id] = new User
+                {
+                    Id = id,
+                    Email = "admin@admin.com",
+                    Username = "admin",
+                    PasswordHash = Helpers.HashPassword("admin1234"),
+                    RoleId = 2,
+                    Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 2))!,
+                    LastModified = DateTime.Now
+                };
+            return Ok(new RegisterResponse { Message = "email: admin@admin.com, password: admin1234" });
         }
     }
 }

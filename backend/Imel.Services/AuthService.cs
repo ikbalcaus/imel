@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Imel.Services
 {
@@ -34,14 +34,14 @@ namespace Imel.Services
                 : MaxLoginAttempts;
         }
 
-        public void AddUser(string email, string username, string password, int roleId)
+        public void AddUser(string email, string username, string password)
         {
-            if (DBContext.Users.ContainsKey(email))
+            if (DBContext.Users.Values.Any(x => x.Email.Equals(email, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ArgumentException("User with this email already exists");
+                throw new ArgumentException("Email is already taken");
             }
 
-            if (DBContext.Users.Values.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+            if (DBContext.Users.Values.Any(x => x.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ArgumentException("Username is already taken");
             }
@@ -56,13 +56,16 @@ namespace Imel.Services
                 throw new ArgumentException("Password must be at least 8 characters long");
             }
 
-            DBContext.Users[email] = new User
+            int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1;
+
+            DBContext.Users[id] = new User
             {
+                Id = id,
                 Email = email,
                 Username = username,
                 PasswordHash = Helpers.HashPassword(password),
-                RoleId = (roleId == 1 || roleId == 2) ? roleId : 1,
-                Role = DBContext.Roles.FirstOrDefault(x => (x.Id == roleId || x.Id == 1))!
+                RoleId = 1,
+                Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 1))!
             };
         }
 
@@ -81,6 +84,7 @@ namespace Imel.Services
                 };
             }
 
+            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == loginRequest.Email);
             var attempts = _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = LoginAttemptWindow;
@@ -101,8 +105,8 @@ namespace Imel.Services
                 };
             }
 
-            if (!DBContext.Users.TryGetValue(loginRequest.Email, out var user) ||
-                !Helpers.VerifyPassword(user.PasswordHash, loginRequest.Password))
+            if (!DBContext.Users.Values.Any(x => x.Email == loginRequest.Email) ||
+                !Helpers.VerifyPassword(user!.PasswordHash, loginRequest.Password))
             {
                 _cache.Set(cacheKey, attempts + 1, LoginAttemptWindow);
                 return new AuthResult
@@ -120,15 +124,16 @@ namespace Imel.Services
 
         public LoginResponse GenerateToken(string email)
         {
-            if (!DBContext.Users.TryGetValue(email, out var user))
+            if (!DBContext.Users.Values.Any(x => x.Email == email))
                 throw new ArgumentException("User does not exist");
 
+            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == email);
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.Name, user.Email)
+                new(ClaimTypes.Name, user!.Email)
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor

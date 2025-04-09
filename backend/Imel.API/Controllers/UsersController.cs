@@ -8,28 +8,28 @@ namespace Imel.API.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly IUserCRUD _userCRUD;
+        private readonly IUsersService _usersService;
         private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IUserCRUD userCRUD, ILogger<UsersController> logger)
+        public UsersController(IUsersService usersService, ILogger<UsersController> logger)
         {
-            _userCRUD = userCRUD;
+            _usersService = usersService;
             _logger = logger;
         }
 
         [HttpGet]
         public IActionResult GetAllUsers()
         {
-            var users = _userCRUD.GetAllUsers();
+            var users = _usersService.GetAllUsers();
             return Ok(users);
         }
 
-        [HttpGet("{email}")]
-        public IActionResult GetUser(string email)
+        [HttpGet("{id}")]
+        public IActionResult GetUser(int id)
         {
             try
             {
-                var user = _userCRUD.GetUserByEmail(email);
+                var user = _usersService.GetUserById(id);
                 return Ok(user);
             }
             catch (KeyNotFoundException ex)
@@ -38,18 +38,12 @@ namespace Imel.API.Controllers
             }
         }
 
-        [HttpPut("{email}")]
-        public IActionResult UpdateUser(string email, [FromBody] UpdateUserRequest request)
+        [HttpPut("{id}")]
+        public IActionResult UpdateUser(int id, [FromBody] CreateUpdateUserRequest req)
         {
             try
             {
-                var user = _userCRUD.UpdateUser(
-                    email,
-                    request.Username,
-                    request.Password,
-                    request.Role,
-                    request.IsActive);
-
+                var user = _usersService.CreateUpdateUser(id, req);
                 return Ok(user);
             }
             catch (KeyNotFoundException ex)
@@ -62,12 +56,12 @@ namespace Imel.API.Controllers
             }
         }
 
-        [HttpDelete("{email}")]
-        public IActionResult DeleteUser(string email)
+        [HttpDelete("{id}")]
+        public IActionResult DeleteUser(int id)
         {
             try
             {
-                var result = _userCRUD.DeleteUser(email);
+                var result = _usersService.DeleteUser(id);
                 return result ? NoContent() : NotFound();
             }
             catch (InvalidOperationException ex)
@@ -76,13 +70,13 @@ namespace Imel.API.Controllers
             }
         }
 
-        [HttpPatch("{email}/status")]
-        public IActionResult ToggleUserStatus(string email)
+        [HttpPatch("{id}/status")]
+        public IActionResult ToggleUserStatus(int id)
         {
             try
             {
-                var isActive = _userCRUD.ToggleUserStatus(email);
-                return Ok(new { Email = email, IsActive = isActive });
+                var isActive = _usersService.ToggleUserStatus(id);
+                return Ok(new { Id = id, IsActive = isActive });
             }
             catch (KeyNotFoundException ex)
             {
