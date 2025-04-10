@@ -8,7 +8,6 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Imel.Services
 {
@@ -34,45 +33,48 @@ namespace Imel.Services
                 : MaxLoginAttempts;
         }
 
-        public void AddUser(string email, string username, string password)
+        public void AddUser(RegisterRequest req)
         {
-            if (DBContext.Users.Values.Any(x => x.Email.Equals(email, StringComparison.OrdinalIgnoreCase)))
+            if (DBContext.Users.Values.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ArgumentException("Email is already taken");
             }
 
-            if (DBContext.Users.Values.Any(x => x.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+            if (DBContext.Users.Values.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ArgumentException("Username is already taken");
             }
 
-            if (!Helpers.IsValidEmail(email))
+            if (!Helpers.IsValidEmail(req.Email))
             {
                 throw new ArgumentException("Invalid email format");
             }
 
-            if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+            if (string.IsNullOrWhiteSpace(req.Password) || req.Password.Length < 8)
             {
                 throw new ArgumentException("Password must be at least 8 characters long");
             }
 
             int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1;
 
-            DBContext.Users[id] = new User
+            var user = new User
             {
                 Id = id,
-                Email = email,
-                Username = username,
-                PasswordHash = Helpers.HashPassword(password),
+                Email = req.Email,
+                Username = req.Username,
+                PasswordHash = Helpers.HashPassword(req.Password),
                 RoleId = 1,
-                Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 1))!
+                Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 1))!,
+                LastModified = DateTime.UtcNow
             };
+            DBContext.Users[id] = user;
+            Helpers.CreateUserVersion(user, "CREATE");
         }
 
-        public AuthResult ValidateUser(LoginRequest loginRequest)
+        public AuthResult ValidateUser(LoginRequest req)
         {
-            var cacheKey = $"login_attempts_{loginRequest.Email}";
-            var lockoutKey = $"account_lockout_{loginRequest.Email}";
+            var cacheKey = $"login_attempts_{req.Email}";
+            var lockoutKey = $"account_lockout_{req.Email}";
 
             if (_cache.TryGetValue(lockoutKey, out DateTime lockoutEnd) && DateTime.UtcNow < lockoutEnd)
             {
@@ -84,7 +86,7 @@ namespace Imel.Services
                 };
             }
 
-            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == loginRequest.Email);
+            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == req.Email);
             var attempts = _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = LoginAttemptWindow;
@@ -105,8 +107,7 @@ namespace Imel.Services
                 };
             }
 
-            if (!DBContext.Users.Values.Any(x => x.Email == loginRequest.Email) ||
-                !Helpers.VerifyPassword(user!.PasswordHash, loginRequest.Password))
+            if (!DBContext.Users.Values.Any(x => x.Email == req.Email) || !Helpers.VerifyPassword(req.Password, user!.PasswordHash))
             {
                 _cache.Set(cacheKey, attempts + 1, LoginAttemptWindow);
                 return new AuthResult
@@ -122,30 +123,29 @@ namespace Imel.Services
             return new AuthResult { Success = true, RemainingAttempts = MaxLoginAttempts };
         }
 
-        public LoginResponse GenerateToken(string email)
+        public LoginResponse GenerateToken(LoginRequest req)
         {
-            if (!DBContext.Users.Values.Any(x => x.Email == email))
+            if (!DBContext.Users.Values.Any(x => x.Email == req.Email))
                 throw new ArgumentException("User does not exist");
 
-            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == email);
+            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == req.Email);
+
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.Name, user!.Email)
+                new(ClaimTypes.Name, user!.Email),
+                new(ClaimTypes.Role, user!.Role.Name)
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(
-                    Convert.ToDouble(_configuration["Jwt:ExpiryInMinutes"])),
+                Expires = DateTime.UtcNow.AddMinutes(Convert.ToDouble(_configuration["Jwt:ExpiryInMinutes"])),
                 Issuer = _configuration["Jwt:Issuer"],
                 Audience = _configuration["Jwt:Audience"],
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key),
-                    SecurityAlgorithms.HmacSha256Signature)
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);

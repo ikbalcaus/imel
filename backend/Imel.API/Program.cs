@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsersService, UsersService>();
+builder.Services.AddScoped<IUserVersionsService, UserVersionsService>();
 builder.Services.AddScoped<IRolesService, RolesService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

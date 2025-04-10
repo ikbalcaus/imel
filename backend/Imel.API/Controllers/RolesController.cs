@@ -1,6 +1,7 @@
 ﻿using Imel.Interfaces;
 using Imel.Models.User;
 using Imel.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Imel.API.Controllers
@@ -19,6 +20,7 @@ namespace Imel.API.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public IActionResult GetAllUsers()
         {
             var users = _rolesService.GetAllRoles();

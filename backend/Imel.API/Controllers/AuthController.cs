@@ -5,6 +5,7 @@ using Imel.Models;
 using Imel.Models.Auth;
 using Imel.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Imel.API.Controllers
 {
@@ -22,26 +23,26 @@ namespace Imel.API.Controllers
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest loginRequest)
+        public IActionResult Login([FromBody] LoginRequest req)
         {
-            var result = _authService.ValidateUser(loginRequest);
+            var result = _authService.ValidateUser(req);
 
             if (!result.Success)
             {
-                _logger.LogWarning($"Failed login attempt for {loginRequest.Email}. Remaining attempts: ");
+                _logger.LogWarning($"Failed login attempt for {req.Email}. Remaining attempts: ");
                 return Unauthorized(result);
             }
 
-            var tokenResponse = _authService.GenerateToken(loginRequest.Email);
+            var tokenResponse = _authService.GenerateToken(req);
             return Ok(tokenResponse);
         }
 
         [HttpPost("register")]
-        public IActionResult Register([FromBody] RegisterRequest request)
+        public IActionResult Register([FromBody] RegisterRequest req)
         {
             try
             {
-                _authService.AddUser(request.Email, request.Username, request.Password);
+                _authService.AddUser(req);
                 return Ok(new RegisterResponse { Message = "User registered successfully"});
             }
             catch (ArgumentException ex)
@@ -55,22 +56,33 @@ namespace Imel.API.Controllers
             }
         }
 
-        [HttpPost("genereteAdmin")]
+        [HttpPost("generete-admin")]
         public ActionResult GenereteAdminUser()
         {
             int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1;
             if (!DBContext.Users.Values.Any(x => x.Email == "admin@admin.com"))
-                DBContext.Users[id] = new User
+            {
+                var user = new User
                 {
                     Id = id,
                     Email = "admin@admin.com",
                     Username = "admin",
-                    PasswordHash = Helpers.HashPassword("admin1234"),
+                    PasswordHash = Helpers.HashPassword("admin123"),
                     RoleId = 2,
                     Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 2))!,
                     LastModified = DateTime.Now
                 };
-            return Ok(new RegisterResponse { Message = "email: admin@admin.com, password: admin1234" });
+                DBContext.Users[id] = user;
+                Helpers.CreateUserVersion(user, "CREATE");
+            }
+            return Ok(new RegisterResponse { Message = "email: admin@admin.com, password: admin123" });
+        }
+
+        [HttpGet("verify-admin")]
+        [Authorize(Roles = "Admin")]
+        public IActionResult VerifyAdmin()
+        {
+            return NoContent();
         }
     }
 }

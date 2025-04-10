@@ -8,52 +8,79 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { urls } from '../globals';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 export default function UsersManagement() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
+  const token = sessionStorage.getItem("token");
 
   useEffect(() => {
-    fetchUsers();
-    fetchRoles();
+    verifyIsAdmin();
   }, []);
 
+  const verifyIsAdmin = async () => {
+    await fetch(urls.auth.verifyAdmin, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    })
+    .then(res => {
+      if (res.ok) {
+        fetchUsers();
+        fetchRoles();
+      }
+      else navigate("/");
+    })
+    .catch(err => toast.error(err));
+  };
+
   const fetchUsers = async () => {
-    try {
-      const response = await fetch(urls.users);
-      const data = await response.json();
-      setUsers(data);
-    } catch (error) {
-      console.error(error);
-    }
+    await fetch(urls.users, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
+    })
+    .then(res => res.json()).then(data => setUsers(data))
+    .catch(err => toast.error(err));
   };
 
   const fetchRoles = async () => {
-    try {
-      const response = await fetch(urls.roles);
-      const data = await response.json();
-      setRoles(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+    await fetch(urls.roles, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
+    })
+    .then(res => res.json()).then(data => setRoles(data))
+    .catch(err => toast.error(err));
+  }
 
   const editUser = async (e) => {
     await fetch(urls.users + "/" + (e.oldData && e.oldData.id ? e.oldData.id : 0), {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify(e.newData || e.data),
     })
-    .then(res => res.json()).then(_ => toast.success("Successfully created / updated user"))
+    .then(res => res.json()).then(_ => toast.success("Successfully changed data"))
     .catch(_ => toast.error("An error occurred"));
     fetchUsers();
   };
 
   const deleteUser = async (e) => {
     await fetch(urls.users + "/" + e.data.id, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
     })
     .then(res => res.json()).then(_ => toast.success("Successfully deleted user"))
     .catch(_ => toast.error("An error occurred"));

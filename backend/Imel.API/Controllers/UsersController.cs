@@ -1,5 +1,6 @@
 ﻿using Imel.Interfaces;
 using Imel.Models.User;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Imel.API.Controllers
@@ -18,6 +19,7 @@ namespace Imel.API.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public IActionResult GetAllUsers()
         {
             var users = _usersService.GetAllUsers();
@@ -25,6 +27,7 @@ namespace Imel.API.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult GetUser(int id)
         {
             try
@@ -39,6 +42,7 @@ namespace Imel.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult UpdateUser(int id, [FromBody] CreateUpdateUserRequest req)
         {
             try
@@ -57,6 +61,7 @@ namespace Imel.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteUser(int id)
         {
             try
@@ -71,6 +76,7 @@ namespace Imel.API.Controllers
         }
 
         [HttpPatch("{id}/status")]
+        [Authorize(Roles = "Admin")]
         public IActionResult ToggleUserStatus(int id)
         {
             try

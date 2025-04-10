@@ -2,6 +2,7 @@
 using Imel.Database.Models;
 using Imel.Interfaces;
 using Imel.Models.User;
+using System;
 
 namespace Imel.Services
 {
@@ -22,9 +23,10 @@ namespace Imel.Services
         public User CreateUpdateUser(int id, CreateUpdateUserRequest req)
         {
             User user;
+            string action;
+
             if (id == 0)
             {
-                id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1;
                 if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
                 {
                     throw new ArgumentException("Email, Username, or Password are empty");
@@ -45,19 +47,23 @@ namespace Imel.Services
                 {
                     throw new ArgumentException("Password must be at least 8 characters");
                 }
+
                 user = new User
                 {
-                    Id = id,
+                    Id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1,
                     Email = req.Email!,
                     Username = req.Username!,
-                    PasswordHash = Helpers.HashPassword(req.Password),
+                    PasswordHash = Helpers.HashPassword(req.Password!),
                     RoleId = req.RoleId ?? 1,
                     Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId || x.Id == 1)!,
                     IsActive = req.IsActive ?? true,
                     LastModified = DateTime.UtcNow
                 };
+
                 DBContext.Users[id] = user;
+                action = "CREATE";
             }
+
             else
             {
                 if (!DBContext.Users.TryGetValue(id, out var userData))
@@ -65,6 +71,7 @@ namespace Imel.Services
                     throw new KeyNotFoundException("User not found");
                 }
                 user = userData;
+
                 if (!string.IsNullOrWhiteSpace(req.Email) && !req.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))
                 {
                     if (DBContext.Users.Values.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
@@ -89,26 +96,22 @@ namespace Imel.Services
                     }
                     user.PasswordHash = Helpers.HashPassword(req.Password);
                 }
-                if (req.RoleId.HasValue)
-                {
-                    var newRole = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId);
-                    if (newRole != null)
-                    {
-                        user.RoleId = newRole.Id;
-                        user.Role = newRole;
-                    }
-                }
-                if (req.IsActive.HasValue)
-                {
-                    user.IsActive = req.IsActive.Value;
-                }
+
+                user.RoleId = req.RoleId ?? 1;
+                user.Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId || x.Id == 1)!;
+                user.IsActive = req.IsActive ?? true;
                 user.LastModified = DateTime.UtcNow;
+                action = "UPDATE";
             }
+
+            Helpers.CreateUserVersion(user, action);
             return user;
         }
 
         public bool DeleteUser(int id)
         {
+            if (!DBContext.Users.TryGetValue(id, out var user)) return false;
+            Helpers.CreateUserVersion(user, "DELETE");
             return DBContext.Users.Remove(id);
         }
 

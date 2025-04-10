@@ -4,8 +4,8 @@ namespace Imel.Interfaces
 {
     public interface IAuthService
     {
-        LoginResponse GenerateToken(string email);
-        AuthResult ValidateUser(LoginRequest loginRequest);
-        void AddUser(string email, string username, string password);
+        LoginResponse GenerateToken(LoginRequest req);
+        AuthResult ValidateUser(LoginRequest req);
+        void AddUser(RegisterRequest req);
     }
 }
