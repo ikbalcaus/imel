@@ -1,6 +1,7 @@
 ﻿using Imel.Database;
 using Imel.Database.Models;
 using Imel.Models.User;
+using System.Data;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
@@ -52,28 +53,38 @@ namespace Imel.Services
             }
         }
 
-        public static void CreateUserVersion(User user, string action)
+        public static void CreateUserVersion(User user, string action, int modifiedByUserId)
         {
             var version = new UserVersion
             {
                 Id = DBContext.UserVersions.Any() ? DBContext.UserVersions.Max(x => x.Id) + 1 : 1,
                 UserId = user.Id,
-                UserData = new User()
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    Username = user.Username,
-                    PasswordHash = user.PasswordHash,
-                    IsActive = user.IsActive,
-                    CreatedAt = user.CreatedAt,
-                    LastModified = user.LastModified,
-                    RoleId = user.RoleId,
-                    Role = user.Role
-                },
-                VersionNumber = DBContext.UserVersions.Any() ? DBContext.UserVersions.Max(x => x.VersionNumber) + 1 : 1,
-                Action = action
+                UserData = CloneUser(user),
+                VersionNumber = (DBContext.UserVersions.LastOrDefault(x => x.UserId == user.Id)?.VersionNumber ?? 0) + 1,
+                Action = action,
+                ModifiedByUser = DBContext.Users.FirstOrDefault(x => x.Id == modifiedByUserId)!,
             };
             DBContext.UserVersions.Add(version);
+        }
+
+        public static User CloneUser(User user)
+        {
+            var role = DBContext.Roles.FirstOrDefault(x => x.Id == user.RoleId);
+            var clonedUser = new User()
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Username = user.Username,
+                PasswordHash = user.PasswordHash,
+                IsActive = user.IsActive,
+                RoleId = user.RoleId,
+                Role = new Role
+                {
+                    Id = role!.Id,
+                    Name = role!.Name
+                }
+            };
+            return clonedUser;
         }
     }
 }

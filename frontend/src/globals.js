@@ -6,5 +6,6 @@ export const urls = {
         verifyAdmin: serverAddress + "/auth/verify-admin"
     },
     users: serverAddress + "/users",
+    userVersions: serverAddress + "/userversions",
     roles: serverAddress + "/roles"
 }

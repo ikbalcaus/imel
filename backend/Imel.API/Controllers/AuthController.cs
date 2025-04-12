@@ -56,26 +56,34 @@ namespace Imel.API.Controllers
             }
         }
 
-        [HttpPost("generete-admin")]
-        public ActionResult GenereteAdminUser()
+        [HttpPost("generete-test-users")]
+        public ActionResult GenerateUsers()
         {
-            int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1;
-            if (!DBContext.Users.Values.Any(x => x.Email == "admin@admin.com"))
+            int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Id) + 1 : 1;
+            var testUsers = new List<object>();
+
+            string[] emailList = new string[] { "a@a.a", "e@e.e", "i@i.i", "o@o.o", "u@u.u" };
+            string password = "12345678";
+
+            foreach (var email in emailList)
             {
-                var user = new User
+                if (!DBContext.Users.Any(x => x.Email == email))
                 {
-                    Id = id,
-                    Email = "admin@admin.com",
-                    Username = "admin",
-                    PasswordHash = Helpers.HashPassword("admin123"),
-                    RoleId = 2,
-                    Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 2))!,
-                    LastModified = DateTime.Now
-                };
-                DBContext.Users[id] = user;
-                Helpers.CreateUserVersion(user, "CREATE");
+                    var user = new User
+                    {
+                        Id = id++,
+                        Email = email,
+                        Username = email.Split('@')[0],
+                        PasswordHash = Helpers.HashPassword(password),
+                        RoleId = 2,
+                        Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 2))!
+                    };
+                    DBContext.Users.Add(user);
+                    Helpers.CreateUserVersion(user, "CREATE", user.Id);
+                    testUsers.Add(new { email = email, password = password });
+                }
             }
-            return Ok(new RegisterResponse { Message = "email: admin@admin.com, password: admin123" });
+            return Ok(testUsers);
         }
 
         [HttpGet("verify-admin")]

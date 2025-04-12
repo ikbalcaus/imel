@@ -1,6 +1,7 @@
 import { urls } from "../globals.js"
 import { toast } from "react-toastify"
 import { useNavigate } from "react-router-dom"
+import styles from "./Design.module.css"
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -26,32 +27,33 @@ export default function RegisterPage() {
     })
     .then(res => res.json()).then(data => {
       toast.success(data.message);
-      navigate("/login");
+      navigate("/");
     })
     .catch(err => toast.error(err.message));
   }
 
   return (
-    <>
-      <form onSubmit={(e) => onSubmit(e)}>
-        <div>
+    <div style={{ margin: "10px" }}>
+      <form onSubmit={(e) => onSubmit(e)} className={styles.form}>
+        <div className={styles.inputGroup}>
           <label>Email:</label>
-          <input type="email" name="email" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Enter a valid email (e.g., user@example.com)" autoComplete="off" spellCheck="false" />
+          <input type="email" name="email"  required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Enter a valid email (e.g., user@example.com)" autoComplete="off" spellCheck="false" />
         </div>
-        <div>
+        <div className={styles.inputGroup}>
           <label>Username:</label>
           <input type="test" name="username" required autoComplete="off" spellCheck="false" />
         </div>
-        <div>
-          <label>Password:</label>
-          <input type="password" name="password" required pattern=".{8,}" title="Password must be at least 8 characters long" autoComplete="off" spellCheck="false" />
+        <div className={styles.inputGroup}>
+          <label styles={styles.label}>Password:</label>
+          <input type="password" name="password"  required pattern=".{8,}" title="Password must be at least 8 characters long" autoComplete="off" spellCheck="false" />
         </div>
-        <div>
+        <div className={styles.inputGroup}>
           <label>Confirm Password:</label>
-          <input type="password" name="confirmPassword" required pattern=".{8,}" title="Password must be at least 8 characters long" autoComplete="off" spellCheck="false" />
+          <input type="password" name="confirmPassword"  required pattern=".{8,}" title="Password must be at least 8 characters long" autoComplete="off" spellCheck="false" />
         </div>
-        <input type="submit" value="Submit" />
+        <input type="submit" value="Submit" className={styles.button} />
       </form>
-    </>
+      <button onClick={() => navigate("/")} className={`${styles.button} ${styles.backButton}`}>Back</button>
+    </div>
   )
 }

@@ -1,5 +1,8 @@
-﻿using Imel.Interfaces;
+﻿using Imel.Database;
+using System.Security.Claims;
+using Imel.Interfaces;
 using Imel.Models.User;
+using Imel.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,12 +21,18 @@ namespace Imel.API.Controllers
             _logger = logger;
         }
 
-        [HttpGet]
-        [Authorize(Roles = "Admin")]
-        public IActionResult GetAllUsers()
+        [HttpGet()]
+        public IActionResult GetPaginatedUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var users = _usersService.GetAllUsers();
-            return Ok(users);
+            try
+            {
+                var result = _usersService.GetUsers(pageNumber, pageSize);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpGet("{id}")]
@@ -45,9 +54,10 @@ namespace Imel.API.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult UpdateUser(int id, [FromBody] CreateUpdateUserRequest req)
         {
+            var modifiedByUserId = DBContext.Users.FirstOrDefault(x => x.Email == User.FindFirstValue(ClaimTypes.Email))!.Id;
             try
             {
-                var user = _usersService.CreateUpdateUser(id, req);
+                var user = _usersService.CreateUpdateUser(id, req, modifiedByUserId);
                 return Ok(user);
             }
             catch (KeyNotFoundException ex)
@@ -64,29 +74,15 @@ namespace Imel.API.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult DeleteUser(int id)
         {
+            var modifiedByUserId = DBContext.Users.FirstOrDefault(x => x.Email == User.FindFirstValue(ClaimTypes.Email))!.Id;
             try
             {
-                var result = _usersService.DeleteUser(id);
+                var result = _usersService.DeleteUser(id, modifiedByUserId);
                 return result ? NoContent() : NotFound();
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpPatch("{id}/status")]
-        [Authorize(Roles = "Admin")]
-        public IActionResult ToggleUserStatus(int id)
-        {
-            try
-            {
-                var isActive = _usersService.ToggleUserStatus(id);
-                return Ok(new { Id = id, IsActive = isActive });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
             }
         }
     }

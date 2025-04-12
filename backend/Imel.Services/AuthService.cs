@@ -35,12 +35,12 @@ namespace Imel.Services
 
         public void AddUser(RegisterRequest req)
         {
-            if (DBContext.Users.Values.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
+            if (DBContext.Users.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ArgumentException("Email is already taken");
             }
 
-            if (DBContext.Users.Values.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
+            if (DBContext.Users.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ArgumentException("Username is already taken");
             }
@@ -55,7 +55,7 @@ namespace Imel.Services
                 throw new ArgumentException("Password must be at least 8 characters long");
             }
 
-            int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1;
+            int id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Id) + 1 : 1;
 
             var user = new User
             {
@@ -64,11 +64,10 @@ namespace Imel.Services
                 Username = req.Username,
                 PasswordHash = Helpers.HashPassword(req.Password),
                 RoleId = 1,
-                Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 1))!,
-                LastModified = DateTime.UtcNow
+                Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 1))!
             };
             DBContext.Users[id] = user;
-            Helpers.CreateUserVersion(user, "CREATE");
+            Helpers.CreateUserVersion(user, "CREATE", user.Id);
         }
 
         public AuthResult ValidateUser(LoginRequest req)
@@ -86,7 +85,7 @@ namespace Imel.Services
                 };
             }
 
-            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == req.Email);
+            var user = DBContext.Users.FirstOrDefault(x => x.Email == req.Email);
             var attempts = _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = LoginAttemptWindow;
@@ -107,13 +106,24 @@ namespace Imel.Services
                 };
             }
 
-            if (!DBContext.Users.Values.Any(x => x.Email == req.Email) || !Helpers.VerifyPassword(req.Password, user!.PasswordHash))
+            if (!DBContext.Users.Any(x => x.Email == req.Email) || !Helpers.VerifyPassword(req.Password, user!.PasswordHash))
             {
                 _cache.Set(cacheKey, attempts + 1, LoginAttemptWindow);
                 return new AuthResult
                 {
                     Success = false,
                     ErrorMessage = "Invalid credentials",
+                    RemainingAttempts = MaxLoginAttempts - (attempts + 1)
+                };
+            }
+
+            if (DBContext.Users.FirstOrDefault(x => x.Email == req.Email)!.IsDeleted == true)
+            {
+                _cache.Set(cacheKey, attempts + 1, LoginAttemptWindow);
+                return new AuthResult
+                {
+                    Success = false,
+                    ErrorMessage = "Your Account is Deleted",
                     RemainingAttempts = MaxLoginAttempts - (attempts + 1)
                 };
             }
@@ -125,17 +135,17 @@ namespace Imel.Services
 
         public LoginResponse GenerateToken(LoginRequest req)
         {
-            if (!DBContext.Users.Values.Any(x => x.Email == req.Email))
+            if (!DBContext.Users.Any(x => x.Email == req.Email))
                 throw new ArgumentException("User does not exist");
 
-            var user = DBContext.Users.Values.FirstOrDefault(x => x.Email == req.Email);
+            var user = DBContext.Users.FirstOrDefault(x => x.Email == req.Email);
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.Name, user!.Email),
+                new(ClaimTypes.Email, user!.Email),
                 new(ClaimTypes.Role, user!.Role.Name)
             };
 

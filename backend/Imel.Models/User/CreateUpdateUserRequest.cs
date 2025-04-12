@@ -1,7 +1,4 @@
-﻿using Imel.Database.Models;
-using System.ComponentModel.DataAnnotations;
-
-namespace Imel.Models.User
+﻿namespace Imel.Models.User
 {
     public class CreateUpdateUserRequest
     {

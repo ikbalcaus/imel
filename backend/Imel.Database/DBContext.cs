@@ -4,7 +4,7 @@ namespace Imel.Database
 {
     public static class DBContext
     {
-        public static readonly Dictionary<int, User> Users = new();
+        public static readonly List<User> Users = new();
         public static readonly List<UserVersion> UserVersions = new();
         public static List<Role> Roles => new()
         {

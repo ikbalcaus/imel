@@ -1,5 +1,42 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import styles from './Design.module.css';
+import { toast } from 'react-toastify';
+import { urls } from '../globals';
+
 export default function HomePage() {
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    verifyIsAdmin();
+  }, []);
+
+  const verifyIsAdmin = async () => {
+    await fetch(urls.auth.verifyAdmin, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${sessionStorage.getItem("token")}`
+      }
+    })
+    .then(res => {
+      if (res.ok) setIsAdmin(true);
+    })
+    .catch(err => toast.error(err));
+  }
+
+  const logout = () => {
+    toast.success("Logout successful");
+    sessionStorage.removeItem("token");
+    navigate("/login");
+  }
+
   return (
-    <div>HomePage</div>
+    <div className={styles.buttonGroup}>
+      <button onClick={() => navigate("/login")} className={styles.button}>Login</button>
+      <button onClick={() => navigate("/register")} className={styles.button}>Register</button>
+      {isAdmin && <button onClick={() => navigate("/admin")} className={styles.button}>Admin Panel</button>}
+      <button onClick={() => logout()} className={styles.button}>Logout</button>
+    </div>
   )
 }

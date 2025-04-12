@@ -5,7 +5,8 @@ import { ToastContainer } from 'react-toastify'
 import HomePage from './components/HomePage.jsx'
 import RegisterPage from './components/RegisterPage.jsx'
 import LoginPage from './components/LoginPage.jsx'
-import UsersManagement from './components/UsersManagments.jsx'
+import UsersManagementPage from './components/UsersManagmentsPage.jsx'
+import UserVersionsPage from './components/UserVersionsPage.jsx'
 
 function App() {
   return (
@@ -14,7 +15,8 @@ function App() {
         <Route path="/" element={ <HomePage /> } />
         <Route path="/register" element={ <RegisterPage /> } />
         <Route path="/login" element={ <LoginPage /> } />
-        <Route path="/admin" element={ <UsersManagement /> } />
+        <Route path="/admin" element={ <UsersManagementPage /> } />
+        <Route path="/admin/userVersions/:id" element={ <UserVersionsPage /> } />
       </Routes>
       <ToastContainer />
     </BrowserRouter>

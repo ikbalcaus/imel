@@ -1,29 +1,44 @@
 ﻿using Imel.Database;
 using Imel.Database.Models;
 using Imel.Interfaces;
+using Imel.Models;
 using Imel.Models.User;
 using System;
+using static System.Collections.Specialized.BitVector32;
 
 namespace Imel.Services
 {
     public class UsersService : IUsersService
     {
-        public IEnumerable<User> GetAllUsers()
+        public Pagination<User> GetUsers(int pageNumber = 1, int pageSize = 10)
         {
-            return DBContext.Users.Values.ToList();
+            var query = DBContext.Users.AsQueryable();
+
+            var totalCount = query.Count();
+            var items = query
+                .OrderBy(u => u.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return new Pagination<User>
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                Items = items
+            };
         }
 
         public User GetUserById(int id)
         {
-            return DBContext.Users.TryGetValue(id, out var user)
-                ? user
-                : throw new KeyNotFoundException("User not found");
+            var user = DBContext.Users.FirstOrDefault(x => x.Id == id);
+            return user ?? throw new KeyNotFoundException("User not found");
         }
 
-        public User CreateUpdateUser(int id, CreateUpdateUserRequest req)
+        public User CreateUpdateUser(int id, CreateUpdateUserRequest req, int modifiedByUserId)
         {
             User user;
-            string action;
 
             if (id == 0)
             {
@@ -31,11 +46,11 @@ namespace Imel.Services
                 {
                     throw new ArgumentException("Email, Username, or Password are empty");
                 }
-                if (DBContext.Users.Values.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
+                if (DBContext.Users.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new ArgumentException("Email is already taken");
                 }
-                if (DBContext.Users.Values.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
+                if (DBContext.Users.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new ArgumentException("Username is already taken");
                 }
@@ -50,23 +65,22 @@ namespace Imel.Services
 
                 user = new User
                 {
-                    Id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Value.Id) + 1 : 1,
+                    Id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Id) + 1 : 1,
                     Email = req.Email!,
                     Username = req.Username!,
                     PasswordHash = Helpers.HashPassword(req.Password!),
                     RoleId = req.RoleId ?? 1,
                     Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId || x.Id == 1)!,
-                    IsActive = req.IsActive ?? true,
-                    LastModified = DateTime.UtcNow
+                    IsActive = req.IsActive ?? true
                 };
-
+                Helpers.CreateUserVersion(user, "CREATE", modifiedByUserId);
                 DBContext.Users[id] = user;
-                action = "CREATE";
             }
 
             else
             {
-                if (!DBContext.Users.TryGetValue(id, out var userData))
+                var userData = DBContext.Users.FirstOrDefault(x => x.Id == id);
+                if (userData == null)
                 {
                     throw new KeyNotFoundException("User not found");
                 }
@@ -74,7 +88,7 @@ namespace Imel.Services
 
                 if (!string.IsNullOrWhiteSpace(req.Email) && !req.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (DBContext.Users.Values.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
+                    if (DBContext.Users.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
                     {
                         throw new ArgumentException("Email is already taken");
                     }
@@ -82,7 +96,7 @@ namespace Imel.Services
                 }
                 if (!string.IsNullOrWhiteSpace(req.Username) && !req.Username.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (DBContext.Users.Values.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
+                    if (DBContext.Users.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
                     {
                         throw new ArgumentException("Username is already taken");
                     }
@@ -97,32 +111,22 @@ namespace Imel.Services
                     user.PasswordHash = Helpers.HashPassword(req.Password);
                 }
 
-                user.RoleId = req.RoleId ?? 1;
-                user.Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId || x.Id == 1)!;
-                user.IsActive = req.IsActive ?? true;
-                user.LastModified = DateTime.UtcNow;
-                action = "UPDATE";
-            }
+                user.RoleId = req.RoleId ?? DBContext.Users.FirstOrDefault(x => x.Id == id)!.RoleId;
+                user.Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId)!;
+                user.IsActive = req.IsActive ?? DBContext.Users.FirstOrDefault(x => x.Id == id)!.IsActive;
+                user.IsDeleted = false;
 
-            Helpers.CreateUserVersion(user, action);
+                Helpers.CreateUserVersion(userData, "UPDATE", modifiedByUserId);
+            }
             return user;
         }
 
-        public bool DeleteUser(int id)
+        public bool DeleteUser(int id, int modifiedByUserId)
         {
-            if (!DBContext.Users.TryGetValue(id, out var user)) return false;
-            Helpers.CreateUserVersion(user, "DELETE");
-            return DBContext.Users.Remove(id);
-        }
-
-        public bool ToggleUserStatus(int id)
-        {
-            if (!DBContext.Users.TryGetValue(id, out var user))
-                throw new KeyNotFoundException("User not found");
-
-            user.IsActive = !user.IsActive;
-            user.LastModified = DateTime.UtcNow;
-            return user.IsActive;
+            var user = DBContext.Users.FirstOrDefault(x => x.Id == id);
+            if (user == null) return false;
+            Helpers.CreateUserVersion(user, "DELETE", modifiedByUserId);
+            return DBContext.Users.FirstOrDefault(x => x.Id == id)!.IsDeleted = true;
         }
     }
 }
