@@ -8,7 +8,7 @@ namespace Imel.Interfaces
     {
         Pagination<User> GetUsers(int pageNumber = 1, int pageSize = 10);
         User GetUserById(int id);
-        User CreateUpdateUser(int id, CreateUpdateUserRequest req, int modifiedByUserId);
-        bool DeleteUser(int id, int modifiedByUserId);
+        User CreateUpdateUser(int id, CreateUpdateUserRequest req);
+        bool DeleteUser(int id);
     }
 }

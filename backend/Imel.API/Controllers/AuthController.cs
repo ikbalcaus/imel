@@ -79,7 +79,8 @@ namespace Imel.API.Controllers
                         Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 2))!
                     };
                     DBContext.Users.Add(user);
-                    Helpers.CreateUserVersion(user, "CREATE", user.Id);
+                    Helpers.CreateUserVersion(user, "CREATE");
+                    Helpers.CreateAuditLog("User", user.Id, "CREATE", "", user);
                     testUsers.Add(new { email = email, password = password });
                 }
             }

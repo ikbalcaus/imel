@@ -1,13 +1,14 @@
-import { urls } from "../globals.js"
-import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
-import styles from "./Design.module.css";
+import { urls } from '../globals.js'
+import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
+import styles from './Design.module.css';
 
 export default function LoginPage() {
   const navigate = useNavigate();
 
   const onSubmit = (e) => {
     e.preventDefault();
+    sessionStorage.removeItem("token");
 
     fetch(urls.auth.login, {
       method: "POST",

@@ -27,20 +27,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+var allowedOrigins = builder.Environment.IsDevelopment()
+    ? new[] { "http://localhost:5173", "http://localhost:3000" }
+    : new[] { "https://imel.ba/" };
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp",
-        builder => builder
-            .WithOrigins("http://localhost:5173", "http://localhost:3000")
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials());
+    options.AddPolicy("AllowReactApp", builder => builder
+        .WithOrigins(allowedOrigins)
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials());
 });
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
 var app = builder.Build();
@@ -50,14 +54,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseCors("AllowReactApp");
+else
+{
+    app.UseHsts();
+}
 
 app.UseHttpsRedirection();
-
+app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
+
+Helpers.HttpContextAccessor = app.Services.GetRequiredService<IHttpContextAccessor>();
 
 app.Run();

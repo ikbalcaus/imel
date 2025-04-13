@@ -2,29 +2,45 @@
 using Imel.Database;
 using Imel.Interfaces;
 using Imel.Models.UserVersions;
-using System;
+using Imel.Models;
 
 namespace Imel.Services
 {
     public class UserVersionsService : IUserVersionsService
     {
-        public IEnumerable<UserVersion> GetUserVersions(int userId)
+        public Pagination<UserVersion> GetUsersVersions(int userId, int pageNumber = 1, int pageSize = 10)
         {
-            return DBContext.UserVersions.Where(v => v.UserId == userId).OrderByDescending(v => v.VersionNumber);
+            var query = DBContext.UserVersions.Where(x => x.UserId == userId).OrderByDescending(x => x.VersionNumber).AsQueryable();
+            var totalCount = query.Count();
+            var items = query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+            return new Pagination<UserVersion>
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                Items = items
+            };
         }
 
-        public User RevertUserVersion(int userId, RevertUserVersionRequest req, int modifiedByUserId)
+        public User RevertUserVersion(int userId, RevertUserVersionRequest req)
         {
-            if (DBContext.Users.FirstOrDefault(x => x.Id == userId) == null)
+            var user = DBContext.Users.FirstOrDefault(x => x.Id == userId);
+
+            if (user == null)
             {
                 throw new KeyNotFoundException("User not found");
             }
 
-            var userData = DBContext.UserVersions.FirstOrDefault(x => x.UserId == userId && x.VersionNumber == req.VersionNumber)!.UserData;
-            DBContext.Users[userId - 1] = Helpers.CloneUser(userData);
+            var version = DBContext.UserVersions.FirstOrDefault(x => x.UserId == userId && x.VersionNumber == req.VersionNumber);
+            var versionData = version!.UserData;
+            var revertedUser = Helpers.CloneUser(versionData);
 
-            Helpers.CreateUserVersion(userData, $"REVERT to {req.VersionNumber}", modifiedByUserId);
-            return userData;
+            Helpers.CreateAuditLog("user", userId, $"REVERT to {req.VersionNumber}", user, versionData);
+            DBContext.Users[userId - 1] = revertedUser;
+            Helpers.CreateUserVersion(revertedUser, $"REVERT to {req.VersionNumber}");
+
+            return revertedUser;
         }
     }
 }

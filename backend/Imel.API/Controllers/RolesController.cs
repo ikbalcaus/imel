@@ -1,6 +1,4 @@
 ﻿using Imel.Interfaces;
-using Imel.Models.User;
-using Imel.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

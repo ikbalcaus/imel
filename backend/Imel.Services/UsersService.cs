@@ -3,8 +3,6 @@ using Imel.Database.Models;
 using Imel.Interfaces;
 using Imel.Models;
 using Imel.Models.User;
-using System;
-using static System.Collections.Specialized.BitVector32;
 
 namespace Imel.Services
 {
@@ -15,11 +13,7 @@ namespace Imel.Services
             var query = DBContext.Users.AsQueryable();
 
             var totalCount = query.Count();
-            var items = query
-                .OrderBy(u => u.Id)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
+            var items = query.OrderBy(x => x.Id).Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
 
             return new Pagination<User>
             {
@@ -36,12 +30,12 @@ namespace Imel.Services
             return user ?? throw new KeyNotFoundException("User not found");
         }
 
-        public User CreateUpdateUser(int id, CreateUpdateUserRequest req, int modifiedByUserId)
+        public User CreateUpdateUser(int id, CreateUpdateUserRequest req)
         {
-            User user;
-
             if (id == 0)
             {
+                var userData = DBContext.Users.FirstOrDefault(x => x.Id == id);
+
                 if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
                 {
                     throw new ArgumentException("Email, Username, or Password are empty");
@@ -63,9 +57,10 @@ namespace Imel.Services
                     throw new ArgumentException("Password must be at least 8 characters");
                 }
 
-                user = new User
+                var newId = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Id) + 1 : 1;
+                userData = new User
                 {
-                    Id = DBContext.Users.Any() ? DBContext.Users.Max(x => x.Id) + 1 : 1,
+                    Id = newId,
                     Email = req.Email!,
                     Username = req.Username!,
                     PasswordHash = Helpers.HashPassword(req.Password!),
@@ -73,34 +68,36 @@ namespace Imel.Services
                     Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId || x.Id == 1)!,
                     IsActive = req.IsActive ?? true
                 };
-                Helpers.CreateUserVersion(user, "CREATE", modifiedByUserId);
-                DBContext.Users[id] = user;
+                DBContext.Users.Add(userData);
+                Helpers.CreateUserVersion(userData, "CREATE");
+                Helpers.CreateAuditLog("User", userData.Id, "CREATE", "", userData);
+                return userData;
             }
 
             else
             {
-                var userData = DBContext.Users.FirstOrDefault(x => x.Id == id);
-                if (userData == null)
+                var newUserData = DBContext.Users.FirstOrDefault(x => x.Id == id);
+                if (newUserData == null)
                 {
                     throw new KeyNotFoundException("User not found");
                 }
-                user = userData;
+                var oldUserData = Helpers.CloneUser(newUserData);
 
-                if (!string.IsNullOrWhiteSpace(req.Email) && !req.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(req.Email) && !req.Email.Equals(newUserData.Email, StringComparison.OrdinalIgnoreCase))
                 {
                     if (DBContext.Users.Any(x => x.Email.Equals(req.Email, StringComparison.OrdinalIgnoreCase)))
                     {
                         throw new ArgumentException("Email is already taken");
                     }
-                    user.Email = req.Email;
+                    newUserData.Email = req.Email;
                 }
-                if (!string.IsNullOrWhiteSpace(req.Username) && !req.Username.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(req.Username) && !req.Username.Equals(newUserData.Username, StringComparison.OrdinalIgnoreCase))
                 {
                     if (DBContext.Users.Any(x => x.Username.Equals(req.Username, StringComparison.OrdinalIgnoreCase)))
                     {
                         throw new ArgumentException("Username is already taken");
                     }
-                    user.Username = req.Username;
+                    newUserData.Username = req.Username;
                 }
                 if (!string.IsNullOrWhiteSpace(req.Password))
                 {
@@ -108,24 +105,26 @@ namespace Imel.Services
                     {
                         throw new ArgumentException("Password must be at least 8 characters");
                     }
-                    user.PasswordHash = Helpers.HashPassword(req.Password);
+                    newUserData.PasswordHash = Helpers.HashPassword(req.Password);
                 }
 
-                user.RoleId = req.RoleId ?? DBContext.Users.FirstOrDefault(x => x.Id == id)!.RoleId;
-                user.Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId)!;
-                user.IsActive = req.IsActive ?? DBContext.Users.FirstOrDefault(x => x.Id == id)!.IsActive;
-                user.IsDeleted = false;
+                newUserData.RoleId = req.RoleId ?? DBContext.Users.FirstOrDefault(x => x.Id == id)!.RoleId;
+                newUserData.Role = DBContext.Roles.FirstOrDefault(x => x.Id == req.RoleId)!;
+                newUserData.IsActive = req.IsActive ?? DBContext.Users.FirstOrDefault(x => x.Id == id)!.IsActive;
+                newUserData.IsDeleted = false;
 
-                Helpers.CreateUserVersion(userData, "UPDATE", modifiedByUserId);
+                Helpers.CreateUserVersion(newUserData, "UPDATE");
+                Helpers.CreateAuditLog("User", newUserData.Id, "UPDATE", oldUserData, newUserData);
+                return newUserData;
             }
-            return user;
         }
 
-        public bool DeleteUser(int id, int modifiedByUserId)
+        public bool DeleteUser(int id)
         {
             var user = DBContext.Users.FirstOrDefault(x => x.Id == id);
             if (user == null) return false;
-            Helpers.CreateUserVersion(user, "DELETE", modifiedByUserId);
+            Helpers.CreateUserVersion(user, "DELETE");
+            Helpers.CreateAuditLog("User", id, "DELETE", user, "");
             return DBContext.Users.FirstOrDefault(x => x.Id == id)!.IsDeleted = true;
         }
     }

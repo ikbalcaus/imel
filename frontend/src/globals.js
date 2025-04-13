@@ -7,5 +7,6 @@ export const urls = {
     },
     users: serverAddress + "/users",
     userVersions: serverAddress + "/userversions",
-    roles: serverAddress + "/roles"
+    roles: serverAddress + "/roles",
+    auditLogs: serverAddress + "/auditlogs"
 }

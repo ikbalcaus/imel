@@ -1,14 +1,17 @@
 ﻿using Imel.Database;
 using Imel.Database.Models;
-using Imel.Models.User;
-using System.Data;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Imel.Services
 {
     public static class Helpers
     {
+        public static IHttpContextAccessor? HttpContextAccessor { get; set; }
+
         public static bool IsValidEmail(string email)
         {
             if (string.IsNullOrWhiteSpace(email)) return false;
@@ -53,7 +56,7 @@ namespace Imel.Services
             }
         }
 
-        public static void CreateUserVersion(User user, string action, int modifiedByUserId)
+        public static void CreateUserVersion(User user, string action)
         {
             var version = new UserVersion
             {
@@ -62,9 +65,25 @@ namespace Imel.Services
                 UserData = CloneUser(user),
                 VersionNumber = (DBContext.UserVersions.LastOrDefault(x => x.UserId == user.Id)?.VersionNumber ?? 0) + 1,
                 Action = action,
-                ModifiedByUser = DBContext.Users.FirstOrDefault(x => x.Id == modifiedByUserId)!,
+                ModifiedByUser = GetUserFromToken().Username
             };
             DBContext.UserVersions.Add(version);
+        }
+
+        public static void CreateAuditLog(string entityType, int entityId, string action, object oldValues, object newValues)
+        {
+            var log = new AuditLog
+            {
+                Id = DBContext.AuditLogs.Count + 1,
+                EntityType = entityType,
+                EntityId = entityId,
+                Action = action,
+                OldValues = JsonSerializer.Serialize(oldValues),
+                NewValues = JsonSerializer.Serialize(newValues),
+                Timestamp = DateTime.UtcNow,
+                ModifiedByUser = GetUserFromToken().Username
+            };
+            DBContext.AuditLogs.Add(log);
         }
 
         public static User CloneUser(User user)
@@ -85,6 +104,25 @@ namespace Imel.Services
                 }
             };
             return clonedUser;
+        }
+
+        public static User GetUserFromToken()
+        {
+            var token = HttpContextAccessor?.HttpContext?.User;
+
+            if (token == null)
+            {
+                return new User();
+            }
+
+            var email = token.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email || c.Type == "email")?.Value;
+            if (string.IsNullOrEmpty(email))
+            {
+                return new User();
+            }
+
+            var user = DBContext.Users.FirstOrDefault(u => u.Email == email);
+            return user ?? new User();
         }
     }
 }

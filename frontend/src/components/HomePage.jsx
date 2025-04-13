@@ -33,10 +33,11 @@ export default function HomePage() {
 
   return (
     <div className={styles.buttonGroup}>
-      <button onClick={() => navigate("/login")} className={styles.button}>Login</button>
-      <button onClick={() => navigate("/register")} className={styles.button}>Register</button>
+      {!sessionStorage.getItem("token") && <button onClick={() => navigate("/login")} className={styles.button}>Login</button>}
+      {!sessionStorage.getItem("token") && <button onClick={() => navigate("/register")} className={styles.button}>Register</button>}
       {isAdmin && <button onClick={() => navigate("/admin")} className={styles.button}>Admin Panel</button>}
-      <button onClick={() => logout()} className={styles.button}>Logout</button>
+      {isAdmin && <button onClick={() => navigate("/admin/audit-logs")} className={styles.button}>Audit Logs</button>}
+      {sessionStorage.getItem("token") && <button onClick={() => logout()} className={styles.button}>Logout</button>}
     </div>
   )
 }

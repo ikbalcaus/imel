@@ -28,9 +28,7 @@ namespace Imel.Services
         public int GetRemainingAttempts(string email)
         {
             var cacheKey = $"login_attempts_{email}";
-            return _cache.TryGetValue(cacheKey, out int attempts)
-                ? MaxLoginAttempts - attempts
-                : MaxLoginAttempts;
+            return _cache.TryGetValue(cacheKey, out int attempts) ? MaxLoginAttempts - attempts : MaxLoginAttempts;
         }
 
         public void AddUser(RegisterRequest req)
@@ -66,8 +64,9 @@ namespace Imel.Services
                 RoleId = 1,
                 Role = DBContext.Roles.FirstOrDefault(x => (x.Id == 1))!
             };
-            DBContext.Users[id] = user;
-            Helpers.CreateUserVersion(user, "CREATE", user.Id);
+            DBContext.Users.Add(user);
+            Helpers.CreateUserVersion(user, "CREATE");
+            Helpers.CreateAuditLog("User", id, "CREATE", "", user);
         }
 
         public AuthResult ValidateUser(LoginRequest req)
@@ -146,7 +145,7 @@ namespace Imel.Services
             var claims = new List<Claim>
             {
                 new(ClaimTypes.Email, user!.Email),
-                new(ClaimTypes.Role, user!.Role.Name)
+                new(ClaimTypes.Role, user.Role.Name)
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor

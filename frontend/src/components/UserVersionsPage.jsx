@@ -1,10 +1,10 @@
-import { useState, useLayoutEffect } from 'react';
-import { DataGrid, Column, Editing, Paging, Pager, FilterRow, Export } from 'devextreme-react/data-grid';
+import { useState, useEffect, useLayoutEffect } from 'react';
+import { DataGrid, Column, Paging, Pager, FilterRow, Export } from 'devextreme-react/data-grid';
 import { urls } from '../globals';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
-import { confirm } from "devextreme/ui/dialog";
+import { confirm } from 'devextreme/ui/dialog';
 import styles from './Design.module.css';
 
 export default function UserVersionsPage() {
@@ -12,11 +12,22 @@ export default function UserVersionsPage() {
   const { id } = useParams();
   const [userVersions, setUserVersions] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [pages, setPages] = useState([]);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 5, // You can adjust the page size as needed
+    totalCount: 0
+  });
   const token = sessionStorage.getItem("token");
 
   useLayoutEffect(() => {
     verifyIsAdmin();
+    fetchRoles();
   }, []);
+
+  useEffect(() => {
+    fetchUserVersions();
+  }, [pagination.currentPage]);
 
   const verifyIsAdmin = async () => {
     await fetch(urls.auth.verifyAdmin, {
@@ -36,14 +47,21 @@ export default function UserVersionsPage() {
   }
 
   const fetchUserVersions = async () => {
-    await fetch(urls.userVersions + "/" + id, {
+    await fetch(urls.userVersions + `/${id}?pageNumber=${pagination.currentPage}&pageSize=${pagination.pageSize}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       }
     })
-    .then(res => res.json()).then(data => setUserVersions(data))
+    .then(res => res.json()).then(data => {
+      setUserVersions(data.items);
+      setPagination(prev => ({
+        ...prev,
+        totalCount: data.totalCount
+      }));
+      setPages(Array.from({ length: Math.ceil(data.totalCount / pagination.pageSize) }, (_, i) => i + 1));
+    })
     .catch(err => toast.error(err));
   }
 
@@ -76,6 +94,16 @@ export default function UserVersionsPage() {
     .catch(err => toast.error(err));
   }
 
+  const updatePagination = (page) => {
+    setPagination(prev => ({
+      ...prev,
+      currentPage: page
+    }));
+    const totalPages = Math.ceil(pagination.totalCount / pagination.pageSize);
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+    setPages(pages);
+  }
+
   return (
     <div style={{ padding: "10px" }}>
       <DataGrid dataSource={userVersions} keyExpr="id" showBorders={true} onRowClick={revertChanges}>
@@ -88,9 +116,14 @@ export default function UserVersionsPage() {
         <Column dataField="userData.isActive" caption="Active" dataType="boolean" />
         <Column dataField="versionNumber" caption="Version Number" />
         <Column dataField="modifiedAt" caption="Modified At" dataType="date" format="dd.MM.yyyy" />
-        <Column dataField="modifiedByUser.username" caption="Modified By" />
+        <Column dataField="modifiedByUser" caption="Modified By" />
         <Column dataField="action" caption="Action" />
       </DataGrid>
+      <div className={styles.buttonGroup}>
+        {pages.map(page =>
+        <button key={page} onClick={() => updatePagination(page)} className={styles.button}>{page}</button>
+        )}
+      </div>
       <button onClick={() => navigate(-1)} className={`${styles.button} ${styles.backButton}`}>Back</button>
     </div>
   );

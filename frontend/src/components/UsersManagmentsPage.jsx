@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect } from 'react';
-import { DataGrid, Column, Editing, Paging, Pager, FilterRow, Export } from 'devextreme-react/data-grid';
+import { DataGrid, Column, Editing, FilterRow } from 'devextreme-react/data-grid';
 import { Popup } from 'devextreme-react/popup';
 import { Button } from 'devextreme-react/button';
 import { jsPDF } from 'jspdf';
@@ -15,7 +15,7 @@ export default function UsersManagementPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [pages, setPages] = useState([1,2,3,4,5]);
+  const [pages, setPages] = useState([]);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     pageSize: 2, // You can adjust the page size as needed
@@ -59,6 +59,7 @@ export default function UsersManagementPage() {
         ...prev,
         totalCount: data.totalCount
       }));
+      setPages(Array.from({ length: Math.ceil(data.totalCount / pagination.pageSize) }, (_, i) => i + 1));
     })
     .catch(err => toast.error(err));
   }
@@ -148,23 +149,7 @@ export default function UsersManagementPage() {
       currentPage: page
     }));
     const totalPages = Math.ceil(pagination.totalCount / pagination.pageSize);
-    let startPage, endPage;
-    if (pagination.currentPage <= 3) {
-      startPage = 1;
-      endPage = Math.min(5, totalPages);
-    }
-    else if (pagination.currentPage >= totalPages - 2) {
-      startPage = Math.max(totalPages - 4, 1);
-      endPage = totalPages;
-    }
-    else {
-      startPage = pagination.currentPage - 2;
-      endPage = pagination.currentPage + 2;
-    }
-    const pages = Array.from(
-      { length: endPage - startPage + 1 },
-      (_, i) => startPage + i
-    );
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
     setPages(pages);
   }
 
@@ -175,7 +160,7 @@ export default function UsersManagementPage() {
         <Button text="Export to PDF" icon="pdffile" onClick={exportToPDF} />
         <Button text="Export to CSV" icon="export" onClick={exportToCSV} />
       </div>
-      <DataGrid dataSource={users} keyExpr="id" showBorders={true} remoteOperations={true} onRowRemoving={deleteUser} onRowInserting={editUser} onRowUpdating={editUser} onRowClick={(e) => navigate("userVersions/" + e.data.id)}>
+      <DataGrid dataSource={users} keyExpr="id" showBorders={true} remoteOperations={true} onRowRemoving={deleteUser} onRowInserting={editUser} onRowUpdating={editUser} onRowClick={(e) => navigate("user-versions/" + e.data.id)}>
       <FilterRow visible={true} />
       <Editing mode="popup" allowAdding={true} allowUpdating={true} allowDeleting={true} useIcons={true}>
         <Popup title="User Details" showTitle={true} width={700} height={500}/>
@@ -185,12 +170,11 @@ export default function UsersManagementPage() {
       <Column dataField="password" caption="Password" />
       <Column dataField="roleId" caption="Role" lookup={{dataSource: roles, valueExpr: "id", displayExpr: "name"}} />
       <Column dataField="isActive" caption="Active" dataType="boolean" />
-      <Column dataField="isDeleted" caption="Deleted" dataType="boolean" />
       </DataGrid>
       <div className={styles.buttonGroup}>
-      {pages.map(page =>
+        {pages.map(page =>
         <button key={page} onClick={() => updatePagination(page)} className={styles.button}>{page}</button>
-      )}
+        )}
       </div>
       <button onClick={() => navigate("/")} className={`${styles.button} ${styles.backButton}`}>Back</button>
     </div>

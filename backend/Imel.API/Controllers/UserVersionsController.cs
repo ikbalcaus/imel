@@ -1,7 +1,4 @@
-﻿using System.Security.Claims;
-using Imel.Database;
-using Imel.Interfaces;
-using Imel.Models.User;
+﻿using Imel.Interfaces;
 using Imel.Models.UserVersions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,11 +20,11 @@ namespace Imel.API.Controllers
 
         [HttpGet("{userId}")]
         [Authorize(Roles = "Admin")]
-        public IActionResult GetUserVersion(int userId)
+        public IActionResult GetUserVersion(int userId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             try
             {
-                var versions = _userVersionsService.GetUserVersions(userId);
+                var versions = _userVersionsService.GetUsersVersions(userId, pageNumber, pageSize);
                 return Ok(versions);
             }
             catch (KeyNotFoundException ex)
@@ -40,10 +37,9 @@ namespace Imel.API.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult RevertUserVersion(int userId, [FromBody] RevertUserVersionRequest req)
         {
-            var modifiedByUserId = DBContext.Users.FirstOrDefault(x => x.Email == User.FindFirstValue(ClaimTypes.Email))!.Id;
             try
             {
-                var user = _userVersionsService.RevertUserVersion(userId, req, modifiedByUserId);
+                var user = _userVersionsService.RevertUserVersion(userId, req);
                 return Ok(user);
             }
             catch (KeyNotFoundException ex)

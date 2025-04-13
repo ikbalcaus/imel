@@ -1,13 +1,14 @@
-import { urls } from "../globals.js"
-import { toast } from "react-toastify"
-import { useNavigate } from "react-router-dom"
-import styles from "./Design.module.css"
+import { urls } from '../globals.js'
+import { toast } from 'react-toastify'
+import { useNavigate } from 'react-router-dom'
+import styles from './Design.module.css'
 
 export default function RegisterPage() {
   const navigate = useNavigate();
 
   const onSubmit = (e) => {
     e.preventDefault();
+    sessionStorage.removeItem("token");
 
     if (e.target.password.value !== e.target.confirmPassword.value) {
       toast.error("Passwords do not match.");
@@ -27,7 +28,7 @@ export default function RegisterPage() {
     })
     .then(res => res.json()).then(data => {
       toast.success(data.message);
-      navigate("/");
+      navigate("/login");
     })
     .catch(err => toast.error(err.message));
   }

@@ -1,8 +1,5 @@
-﻿using Imel.Database;
-using System.Security.Claims;
-using Imel.Interfaces;
+﻿using Imel.Interfaces;
 using Imel.Models.User;
-using Imel.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -54,10 +51,9 @@ namespace Imel.API.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult UpdateUser(int id, [FromBody] CreateUpdateUserRequest req)
         {
-            var modifiedByUserId = DBContext.Users.FirstOrDefault(x => x.Email == User.FindFirstValue(ClaimTypes.Email))!.Id;
             try
             {
-                var user = _usersService.CreateUpdateUser(id, req, modifiedByUserId);
+                var user = _usersService.CreateUpdateUser(id, req);
                 return Ok(user);
             }
             catch (KeyNotFoundException ex)
@@ -74,10 +70,9 @@ namespace Imel.API.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult DeleteUser(int id)
         {
-            var modifiedByUserId = DBContext.Users.FirstOrDefault(x => x.Email == User.FindFirstValue(ClaimTypes.Email))!.Id;
             try
             {
-                var result = _usersService.DeleteUser(id, modifiedByUserId);
+                var result = _usersService.DeleteUser(id);
                 return result ? NoContent() : NotFound();
             }
             catch (InvalidOperationException ex)
